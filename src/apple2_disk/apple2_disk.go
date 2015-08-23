@@ -348,4 +348,26 @@ func (apple2_disk *Apple2Disk) DumpFile(filename string, output_name string) {
   }
 }
 
+func (apple2_disk *Apple2Disk) Init() {
+  apple2_disk.data = make([]byte, 143360)
+}
+
+func (apple2_disk *Apple2Disk) AddDos(filename string) {
+}
+
+func (apple2_disk *Apple2Disk) AddFile(filename string, apple_name string) {
+}
+
+func (apple2_disk *Apple2Disk) Save(filename string) {
+  file_out, err := os.Create(filename)
+
+  if err != nil {
+    panic(err)
+  }
+
+  file_out.Write(apple2_disk.data)
+  file_out.Close()
+}
+
+
 

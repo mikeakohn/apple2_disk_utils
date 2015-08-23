@@ -19,6 +19,7 @@ func main() {
   }
 
   apple2_disk.PrintDiskInfo()
+  apple2_disk.PrintCatalog()
 
 }
 

@@ -234,7 +234,7 @@ func (apple2_disk *Apple2Disk) PrintFileSectorList(track int, sector int) {
   }
 }
 
-func (apple2_disk *Apple2Disk) DumpBinaryFile(track int, sector int) {
+func (apple2_disk *Apple2Disk) DumpBinaryFile(output_name string, track int, sector int) {
   binary_data := make([]byte, 0)
 
   for true {
@@ -247,7 +247,7 @@ func (apple2_disk *Apple2Disk) DumpBinaryFile(track int, sector int) {
       file_track := int(apple2_disk.data[offset + i])
       file_sector := int(apple2_disk.data[offset + i + 1])
 
-      //dump_sector(apple2_disk.data, file_track, file_sector)
+      //apple2_disk.DumpSector(file_track, file_sector)
       bin_offset := GetOffset(file_track, file_sector)
 
       binary_data = append(binary_data, apple2_disk.data[bin_offset:bin_offset + 256]...)
@@ -259,7 +259,7 @@ func (apple2_disk *Apple2Disk) DumpBinaryFile(track int, sector int) {
     if track == 0 && sector == 0 { break }
   }
 
-  file_out, err := os.Create("out.bin")
+  file_out, err := os.Create(output_name)
 
   if err != nil {
     panic(err)
@@ -275,12 +275,16 @@ func (apple2_disk *Apple2Disk) DumpBinaryFile(track int, sector int) {
   file_out.Close()
 }
 
-func (apple2_disk *Apple2Disk) PrintTextFile(track int, sector int) {
+func (apple2_disk *Apple2Disk) PrintTextFile(output_name string, track int, sector int) {
+
+  file_out, err := os.Create(output_name)
+
+  if err != nil {
+    panic(err)
+  }
+
   for true {
     offset := GetOffset(track, sector)
-
-    //fmt.Printf("Sector Offset In File: %d\n",
-    //  int(apple2_disk.data[offset + 0x02]) | (int(apple2_disk.data[offset + 0x02] << 8)))
 
     for i := 0x0c; i <= 0xff; i += 2 {
       if apple2_disk.data[offset + i] == 0 && apple2_disk.data[offset + i + 1] == 0 { break }
@@ -288,7 +292,7 @@ func (apple2_disk *Apple2Disk) PrintTextFile(track int, sector int) {
       file_track := int(apple2_disk.data[offset + i])
       file_sector := int(apple2_disk.data[offset + i + 1])
 
-      //dump_sector(apple2_disk.data, file_track, file_sector)
+      //apple2_disk.DumpSector(file_track, file_sector)
       text_offset := GetOffset(file_track, file_sector)
       for n := 0; n < 256; n++ {
         ch := apple2_disk.data[text_offset + n]
@@ -297,11 +301,10 @@ func (apple2_disk *Apple2Disk) PrintTextFile(track int, sector int) {
         ch &= 0x7f
 
         if (ch >= 32 && ch <= 127 || ch == '\r' || ch == '\n' || ch == '\t') {
-          //fmt.Printf("[%d]%c", n, ch);
-          fmt.Printf("%c", ch)
-          if ch == '\r' { fmt.Printf("\n") }
+          file_out.WriteString(fmt.Sprintf("%c", ch))
+          if ch == '\r' { file_out.WriteString("\n") }
         } else {
-          fmt.Print("[%02x]", ch)
+          file_out.WriteString(fmt.Sprintf("[%02x]", ch))
         }
       }
     }
@@ -312,8 +315,24 @@ func (apple2_disk *Apple2Disk) PrintTextFile(track int, sector int) {
     if track == 0 && sector == 0 { break }
   }
 
-  fmt.Println()
+  file_out.WriteString("\n")
 }
 
+func (apple2_disk *Apple2Disk) DumpFile(filename string, output_name string) {
+  track, sector, is_binary := apple2_disk.FindFile(filename)
+
+  if track == 0 && sector == 0 {
+    fmt.Println("Error: File not found '" + filename + "'")
+  } else {
+    //apple2_disk.DumpSector(track, sector)
+    apple2_disk.PrintFileSectorList(track, sector)
+
+    if is_binary {
+      apple2_disk.DumpBinaryFile(output_name, track, sector)
+    } else {
+      apple2_disk.PrintTextFile(output_name, track, sector)
+    }
+  }
+}
 
 

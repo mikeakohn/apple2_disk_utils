@@ -130,5 +130,39 @@ func (apple2_disk *Apple2Disk) PrintCatalog() {
   }
 }
 
+func (apple2_disk *Apple2Disk) DumpSector(track int, sector int) {
+  text := make([]byte, 16)
+
+  offset := GetOffset(track, sector)
+
+  fmt.Printf("===== Track: %d   Sector: %d   Offset: %d =====\n", track, sector, offset)
+
+ for i := 0; i < 256; i++ {
+    if (i % 16) == 0 {
+      fmt.Printf("%02x: ", i)
+    }
+
+    fmt.Printf(" %02x", apple2_disk.data[offset + i])
+
+    ch := int(apple2_disk.data[offset + i])
+    ch &= 0x7f
+
+    if ch >= 32 && ch < 127 {
+      text[i % 16] = byte(ch)
+    } else {
+      text[i % 16] = '.'
+    }
+
+    if (i % 16) == 15 {
+      fmt.Print("  ")
+      for n := 0; n < 16; n++ {
+        fmt.Printf("%c", text[n])
+      }
+      fmt.Println()
+    }
+  }
+
+  fmt.Println()
+}
 
 

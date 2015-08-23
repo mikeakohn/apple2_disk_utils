@@ -20,6 +20,6 @@ func main() {
 
   apple2_disk.PrintDiskInfo()
   apple2_disk.PrintCatalog()
-
+  //apple2_disk.DumpSector(17, 0)
 }
 

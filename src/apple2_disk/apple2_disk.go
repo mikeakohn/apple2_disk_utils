@@ -165,4 +165,155 @@ func (apple2_disk *Apple2Disk) DumpSector(track int, sector int) {
   fmt.Println()
 }
 
+func (apple2_disk *Apple2Disk) FindFile(filename string) (int, int, bool) {
+  if len(filename) > 30 { return 0, 0, false }
+
+  apple_name := make([]byte, 30)
+
+  for i := 0; i < len(apple_name); i++ { apple_name[i] = 32 | 0x80 }
+  for i := 0; i < len(filename); i++ {
+    apple_name[i] = filename[i] | 0x80
+  }
+
+  offset := GetOffset(17, 0)
+
+  track := int(apple2_disk.data[offset + 1])
+  sector := int(apple2_disk.data[offset + 2])
+
+  for true {
+    //fmt.Printf("Track: %d  Sector: %d\n", track, sector)
+
+    offset := GetOffset(track, sector)
+
+    for i := 0x0b; i < 256; i += 0x23 {
+      var n int
+
+      for n = 0; n < len(apple_name); n++ {
+        //fmt.Printf("%d: %d %d\n", i, apple2_disk.data[offset + i + n + 3], apple_name[n])
+        if apple2_disk.data[offset + i + n + 3] != apple_name[n] { break }
+      }
+
+      if n == len(apple_name) {
+        is_binary := true
+        if apple2_disk.data[offset + i + 2] & 0x7f == 0 { is_binary = false }
+        return int(apple2_disk.data[offset + i + 0]), int(apple2_disk.data[offset + i + 1]), is_binary
+      }
+    }
+    track = int(apple2_disk.data[offset + 1])
+    sector = int(apple2_disk.data[offset + 2])
+
+    if track == 0 { break }
+  }
+
+  return 0, 0, false
+}
+
+func (apple2_disk *Apple2Disk) PrintFileSectorList(track int, sector int) {
+
+  for true {
+    offset := GetOffset(track, sector)
+
+    fmt.Printf("======= File Track/Sector List %d/%d  ========\n", track, sector)
+
+    fmt.Printf("           Track Next: %d\n", apple2_disk.data[offset + 0x01])
+    fmt.Printf("          Sector Next: %d\n", apple2_disk.data[offset + 0x02])
+    fmt.Printf("Sector Offset In File: %d\n", GetInt16(apple2_disk.data, offset + 0x02))
+
+    for i := 0x0c; i <= 0xff; i += 2 {
+      if apple2_disk.data[offset + i] == 0 &&
+         apple2_disk.data[offset + i + 1] == 0 { break }
+
+      fmt.Printf("                 Data: track=%d sector=%d\n",
+        apple2_disk.data[offset + i], apple2_disk.data[offset + i + 1])
+    }
+
+    if apple2_disk.data[offset + 0x01] == 0x00 { break }
+
+    track = int(apple2_disk.data[offset + 0x01])
+    sector = int(apple2_disk.data[offset + 0x02])
+  }
+}
+
+func (apple2_disk *Apple2Disk) DumpBinaryFile(track int, sector int) {
+  binary_data := make([]byte, 0)
+
+  for true {
+    offset := GetOffset(track, sector)
+
+    for i := 0x0c; i <= 0xff; i += 2 {
+      if apple2_disk.data[offset + i] == 0 &&
+         apple2_disk.data[offset + i + 1] == 0 { break }
+
+      file_track := int(apple2_disk.data[offset + i])
+      file_sector := int(apple2_disk.data[offset + i + 1])
+
+      //dump_sector(apple2_disk.data, file_track, file_sector)
+      bin_offset := GetOffset(file_track, file_sector)
+
+      binary_data = append(binary_data, apple2_disk.data[bin_offset:bin_offset + 256]...)
+    }
+
+    track = int(apple2_disk.data[offset + 0x01])
+    sector = int(apple2_disk.data[offset + 0x02])
+
+    if track == 0 && sector == 0 { break }
+  }
+
+  file_out, err := os.Create("out.bin")
+
+  if err != nil {
+    panic(err)
+  }
+
+  load_offset := GetInt16(binary_data, 0)
+  length := GetInt16(binary_data, 2)
+
+  fmt.Printf("      Load Address: 0x%04x\n", load_offset)
+  fmt.Printf("            Length: 0x%04x\n", length)
+
+  file_out.Write(binary_data[4:length + 4])
+  file_out.Close()
+}
+
+func (apple2_disk *Apple2Disk) PrintTextFile(track int, sector int) {
+  for true {
+    offset := GetOffset(track, sector)
+
+    //fmt.Printf("Sector Offset In File: %d\n",
+    //  int(apple2_disk.data[offset + 0x02]) | (int(apple2_disk.data[offset + 0x02] << 8)))
+
+    for i := 0x0c; i <= 0xff; i += 2 {
+      if apple2_disk.data[offset + i] == 0 && apple2_disk.data[offset + i + 1] == 0 { break }
+
+      file_track := int(apple2_disk.data[offset + i])
+      file_sector := int(apple2_disk.data[offset + i + 1])
+
+      //dump_sector(apple2_disk.data, file_track, file_sector)
+      text_offset := GetOffset(file_track, file_sector)
+      for n := 0; n < 256; n++ {
+        ch := apple2_disk.data[text_offset + n]
+
+        if (ch == 0) { break; }
+        ch &= 0x7f
+
+        if (ch >= 32 && ch <= 127 || ch == '\r' || ch == '\n' || ch == '\t') {
+          //fmt.Printf("[%d]%c", n, ch);
+          fmt.Printf("%c", ch)
+          if ch == '\r' { fmt.Printf("\n") }
+        } else {
+          fmt.Print("[%02x]", ch)
+        }
+      }
+    }
+
+    track = int(apple2_disk.data[offset + 0x01])
+    sector = int(apple2_disk.data[offset + 0x02])
+
+    if track == 0 && sector == 0 { break }
+  }
+
+  fmt.Println()
+}
+
+
 

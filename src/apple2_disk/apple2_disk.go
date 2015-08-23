@@ -43,6 +43,8 @@ func (apple2_disk *Apple2Disk) PrintDiskInfo() {
   // disks.
   offset := GetOffset(17, 0)
 
+  total_tracks := int(apple2_disk.data[offset + 0x34])
+
   fmt.Println("================ Disk Info ===================")
   fmt.Printf("       Catalog Track: %d\n", apple2_disk.data[offset + 0x01])
   fmt.Printf("      Catalog Sector: %d\n", apple2_disk.data[offset + 0x02])
@@ -54,6 +56,17 @@ func (apple2_disk *Apple2Disk) PrintDiskInfo() {
   fmt.Printf("     Tracks Per Disk: %d\n", apple2_disk.data[offset + 0x34])
   fmt.Printf("    Sectors Per Disk: %d\n", apple2_disk.data[offset + 0x35])
   fmt.Printf("    Bytes Per Sector: %d\n", GetInt16(apple2_disk.data, offset + 0x36))
+  fmt.Printf("  Free Sector Bitmap:\n")
+
+  for i := 0x38; i <= 0xff; i += 4 {
+    if  (i - 0x38) / 4 >= total_tracks { break }
+    fmt.Printf("         Track %d: %02x %02x %02x %02x\n",
+      (i - 0x36) / 4,
+      apple2_disk.data[offset + i + 0],
+      apple2_disk.data[offset + i + 1],
+      apple2_disk.data[offset + i + 2],
+      apple2_disk.data[offset + i + 3])
+  }
 }
 
 func (apple2_disk *Apple2Disk) PrintCatalog() {

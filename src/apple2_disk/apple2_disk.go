@@ -392,15 +392,16 @@ func (apple2_disk *Apple2Disk) Init() {
   apple2_disk.data = make([]byte, 143360)
 
   disk_info := [...]byte{
-    0x00,    // unused
+    0,       // unused
     17, 15,  // track/sector
     3,       // release number
     0, 0,    // unused
     254,     // volume number
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0, 0,
     122,     // max number of track/sector pairs
     0, 0, 0, 0, 0, 0, 0, 0,
-    19,      // last track sectors were allocated
+    18,      // last track sectors were allocated
     1,       // direction of track allocation
     0, 0,
     35, 16,  // max tracks, max sectors per track
@@ -416,9 +417,57 @@ func (apple2_disk *Apple2Disk) Init() {
     apple2_disk.data[offset + i + 0] = 0xff
     apple2_disk.data[offset + i + 1] = 0xff
   }
+
+  apple2_disk.MarkSectorUsed(17, 0)
+
+  // Link catalog
+  for sector := 15; sector >= 1; sector-- {
+    offset := GetOffset(17, sector)
+
+    if sector != 1 {
+      apple2_disk.data[offset + 1 ] = 17
+      apple2_disk.data[offset + 2 ] = byte(sector) - 1
+    }
+
+    apple2_disk.MarkSectorUsed(17, sector)
+  }
 }
 
 func (apple2_disk *Apple2Disk) AddDos(filename string) {
+  file, err := os.Open(filename)
+
+  if err != nil {
+    panic(err)
+  }
+
+  defer file.Close()
+
+  stat, err := file.Stat()
+  if err != nil {
+    panic(err)
+  }
+
+  if (stat.Size() & 0xff) != 0 {
+    fmt.Println("Error: dos33.img is not a multiple of 256 bytes")
+    return
+  }
+
+  dos33 := make([]byte, stat.Size())
+  file.Read(dos33)
+
+  for i := 0; i < len(dos33); i++ {
+    apple2_disk.data[i] = dos33[i]
+  }
+
+  track := 0
+  sector := 0
+
+  for i := 0; i < len(dos33) / 256; i++ {
+    apple2_disk.MarkSectorUsed(track, sector)
+    sector++
+    if sector == 16 { sector = 0; track++ }
+  }
+
 }
 
 func (apple2_disk *Apple2Disk) AddFile(filename string, apple_name string) {

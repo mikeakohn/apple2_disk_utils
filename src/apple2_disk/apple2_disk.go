@@ -515,9 +515,9 @@ func (apple2_disk *Apple2Disk) AddFile(filename string, apple_name string, addre
     // For each possible catalog entry.
     for i := 0x0b; i < 256; i += 0x23 {
       // If Catalog entry is empty.
-      if apple2_disk.data[offset + i + 1] == 0xff ||
-         apple2_disk.data[offset + i + 1] == 0x00 &&
-         apple2_disk.data[offset + i + 2] == 0x00 {
+      if apple2_disk.data[offset + i + 0] == 0xff ||
+         apple2_disk.data[offset + i + 0] == 0x00 &&
+         apple2_disk.data[offset + i + 1] == 0x00 {
         if address != 0 { apple2_disk.data[offset + i + 2] = 0x04 }
         for n := 0; n < 30; n++ { apple2_disk.data[offset + i + 3 + n ] = 0xa0 }
         apple_name = strings.ToUpper(apple_name)
@@ -555,6 +555,11 @@ func (apple2_disk *Apple2Disk) AddFile(filename string, apple_name string, addre
 
         // Allocate sector for Track/Sector List
         track, sector = apple2_disk.AllocSector()
+
+        // Save track and sector pointer in catalog sector
+        apple2_disk.data[offset + i + 0x00 ] = byte(track)
+        apple2_disk.data[offset + i + 0x01 ] = byte(sector)
+
         offset = GetOffset(track, sector)
         entry := 0x0c
 

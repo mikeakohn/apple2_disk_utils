@@ -1,6 +1,7 @@
 package apple2_disk
 
 import "fmt"
+import "strings"
 import "os"
 
 // http://fileformats.archiveteam.org/wiki/Apple_DOS_file_system
@@ -467,10 +468,67 @@ func (apple2_disk *Apple2Disk) AddDos(filename string) {
     sector++
     if sector == 16 { sector = 0; track++ }
   }
-
 }
 
-func (apple2_disk *Apple2Disk) AddFile(filename string, apple_name string) {
+func (apple2_disk *Apple2Disk) AddFile(filename string, apple_name string, address int) {
+
+  if len(apple_name) > 30 {
+    fmt.Println("Error: Filename can't be more then 30 chars.\n")
+    return
+  }
+
+  offset := GetOffset(17, 0)
+
+  track := int(apple2_disk.data[offset + 1])
+  sector := int(apple2_disk.data[offset + 2])
+
+  // Search catalog for an empty space
+  for true {
+    offset := GetOffset(track, sector)
+
+    // For each possible catalog entry.
+    for i := 0x0b; i < 256; i += 0x23 {
+      // If Catalog entry is empty.
+      if apple2_disk.data[offset + i + 1] == 0xff ||
+         apple2_disk.data[offset + i + 1] == 0x00 &&
+         apple2_disk.data[offset + i + 2] == 0x00 {
+        if address != 0 { apple2_disk.data[offset + i + 2] = 0x04 }
+        for n := 0; n < 30; n++ { apple2_disk.data[offset + i + 3 + n ] = 0xa0 }
+        apple_name = strings.ToUpper(apple_name)
+        for n := 0; n < len(apple_name); n++ {
+          apple2_disk.data[offset + i + 3 + n ] = apple_name[n] | 0x80
+        }
+
+        file, err := os.Open(filename)
+
+        if err != nil {
+          panic(err)
+        }
+
+        defer file.Close()
+
+        stat, err := file.Stat()
+        if err != nil {
+          panic(err)
+        }
+
+        sectors := (stat.Size() + 255) / 256
+
+        apple2_disk.data[offset + i + 0x21 ] = byte(sectors & 0xff)
+        apple2_disk.data[offset + i + 0x22 ] = byte(sectors >> 8)
+
+        return
+      }
+    }
+
+    // Next sector in the linked list of Catalog entries.
+    track = int(apple2_disk.data[offset + 1])
+    sector = int(apple2_disk.data[offset + 2])
+
+    if track == 0 { break }
+  }
+
+  fmt.Println("Disk is full\n")
 }
 
 func (apple2_disk *Apple2Disk) Save(filename string) {

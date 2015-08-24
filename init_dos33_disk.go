@@ -15,7 +15,7 @@ func main() {
   apple2_disk := new(apple2_disk.Apple2Disk)
   apple2_disk.Init()
   apple2_disk.AddDos(os.Args[2])
-  apple2_disk.AddFile(os.Args[3], "HELLO")
+  apple2_disk.AddFile(os.Args[3], "HELLO", 0x9100)
   apple2_disk.Save(os.Args[1])
 }
 

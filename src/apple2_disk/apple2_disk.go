@@ -348,8 +348,74 @@ func (apple2_disk *Apple2Disk) DumpFile(filename string, output_name string) {
   }
 }
 
+func (apple2_disk *Apple2Disk) MarkSectorUsed(track int, sector int) {
+  offset := GetOffset(17, 0)
+
+  byte_pair_offset := offset + 0x38 + (track * 4)
+  current := (int(apple2_disk.data[byte_pair_offset]) << 8) |
+              int(apple2_disk.data[byte_pair_offset + 1])
+
+  current &= 0xffff ^ (1 << uint32(sector))
+
+  apple2_disk.data[byte_pair_offset + 0] = byte(current >> 8)
+  apple2_disk.data[byte_pair_offset + 1] = byte(current & 0xff)
+}
+
+func (apple2_disk *Apple2Disk) MarkSectorFree(track int, sector int) {
+  offset := GetOffset(17, 0)
+
+  byte_pair_offset := offset + 0x38 + (track * 4)
+  current := (int(apple2_disk.data[byte_pair_offset]) << 8) |
+              int(apple2_disk.data[byte_pair_offset + 1])
+
+  current |= 1 << uint32(sector)
+
+  apple2_disk.data[byte_pair_offset + 0] = byte(current >> 8)
+  apple2_disk.data[byte_pair_offset + 1] = byte(current & 0xff)
+}
+
+func (apple2_disk *Apple2Disk) IsSectorFree(track int, sector int) bool {
+  offset := GetOffset(17, 0)
+
+  byte_pair_offset := offset + 0x38 + (track * 4)
+  current := (int(apple2_disk.data[byte_pair_offset]) << 8) |
+              int(apple2_disk.data[byte_pair_offset + 1])
+
+  if (current & (1 << uint32(sector))) == 0 {
+    return false
+  } else {
+    return true
+  }
+}
+
 func (apple2_disk *Apple2Disk) Init() {
   apple2_disk.data = make([]byte, 143360)
+
+  disk_info := [...]byte{
+    0x00,    // unused
+    17, 15,  // track/sector
+    3,       // release number
+    0, 0,    // unused
+    254,     // volume number
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    122,     // max number of track/sector pairs
+    0, 0, 0, 0, 0, 0, 0, 0,
+    19,      // last track sectors were allocated
+    1,       // direction of track allocation
+    0, 0,
+    35, 16,  // max tracks, max sectors per track
+  }
+
+  offset := GetOffset(17, 0)
+
+  for i := 0; i < len(disk_info); i++ {
+    apple2_disk.data[offset + i] = disk_info[i]
+  }
+
+  for i := 0x38; i < 0xc4; i += 4 {
+    apple2_disk.data[offset + i + 0] = 0xff
+    apple2_disk.data[offset + i + 1] = 0xff
+  }
 }
 
 func (apple2_disk *Apple2Disk) AddDos(filename string) {

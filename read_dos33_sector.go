@@ -23,5 +23,11 @@ func main() {
   sector, _ := strconv.Atoi(os.Args[3])
 
   apple2_disk.DumpSector(track, sector)
+  fmt.Print("Is Free: ")
+  if apple2_disk.IsSectorFree(track, sector) {
+    fmt.Println("True")
+  } else {
+    fmt.Println("False")
+  }
 }
 

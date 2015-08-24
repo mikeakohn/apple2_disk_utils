@@ -470,6 +470,32 @@ func (apple2_disk *Apple2Disk) AddDos(filename string) {
   }
 }
 
+func (apple2_disk *Apple2Disk) AllocSector() (int, int) {
+  offset := GetOffset(17, 0)
+
+  track := int(apple2_disk.data[offset + 0x30])
+  sector := 0
+
+  for count := 0; count < 35 * 16; count++ {
+    if apple2_disk.IsSectorFree(track, sector) {
+      apple2_disk.data[offset + 0x30] = byte(track)
+      apple2_disk.MarkSectorUsed(track, sector)
+      return track, sector
+    }
+
+    sector++
+    if sector == 16 {
+      sector = 0
+      track++
+      if track == 35 {
+        track = 0
+      }
+    }
+  }
+
+  return -1, -1
+}
+
 func (apple2_disk *Apple2Disk) AddFile(filename string, apple_name string, address int) {
 
   if len(apple_name) > 30 {
@@ -512,10 +538,42 @@ func (apple2_disk *Apple2Disk) AddFile(filename string, apple_name string, addre
           panic(err)
         }
 
-        sectors := (stat.Size() + 255) / 256
+        binfile := make([]byte, stat.Size())
+        file.Read(binfile)
+
+        if address != 0 {
+          binsize := stat.Size()
+          binfile = append([]byte{
+            byte(address & 0xff), byte(address >> 8),
+            byte(binsize & 0xff), byte(binsize >> 8), }, binfile...)
+        }
+
+        sectors := (len(binfile) + 255) / 256
 
         apple2_disk.data[offset + i + 0x21 ] = byte(sectors & 0xff)
         apple2_disk.data[offset + i + 0x22 ] = byte(sectors >> 8)
+
+        // Allocate sector for Track/Sector List
+        track, sector = apple2_disk.AllocSector()
+        offset = GetOffset(track, sector)
+        entry := 0x0c
+
+        for i := 0; i < len(binfile); i += 256 {
+          track, sector = apple2_disk.AllocSector()
+          file_offset := GetOffset(track, sector)
+
+          apple2_disk.data[offset + entry + 0] = byte(track)
+          apple2_disk.data[offset + entry + 1] = byte(sector)
+
+          length := len(binfile) - i
+          if length > 256 { length = 256 }
+
+          for n := 0; n < length; n++ {
+            apple2_disk.data[file_offset + n] = binfile[i + n]
+          }
+        }
+
+        //fmt.Printf("Alloc() track=%d sector=%d\n", track, sector
 
         return
       }

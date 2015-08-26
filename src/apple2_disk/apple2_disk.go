@@ -8,6 +8,9 @@ import "os"
 
 type Apple2Disk struct {
   data []byte
+  offset_to_disk_info int
+  catalog_track int
+  catalog_sector int
 }
 
 func GetOffset(track int, sector int) int {
@@ -36,13 +39,19 @@ func (apple2_disk *Apple2Disk) Load(filename string) bool {
 
   file.Read(apple2_disk.data)
 
+  // Track 17, Sector 0 should be the disk info area.  At least on 5 1/4"
+  // disks.
+  apple2_disk.offset_to_disk_info = GetOffset(17, 0)
+
+  apple2_disk.catalog_track = int(apple2_disk.data[apple2_disk.offset_to_disk_info + 1])
+  apple2_disk.catalog_sector = int(apple2_disk.data[apple2_disk.offset_to_disk_info + 2])
+
   return true
 }
 
 func (apple2_disk *Apple2Disk) PrintDiskInfo() {
-  // Track 17, Sector 0 should be the disk info area.  At least on 5 1/4"
-  // disks.
-  offset := GetOffset(17, 0)
+
+  offset := apple2_disk.offset_to_disk_info
 
   total_tracks := int(apple2_disk.data[offset + 0x34])
 
@@ -71,10 +80,8 @@ func (apple2_disk *Apple2Disk) PrintDiskInfo() {
 }
 
 func (apple2_disk *Apple2Disk) PrintCatalog() {
-  offset := GetOffset(17, 0)
-
-  track := int(apple2_disk.data[offset + 1])
-  sector := int(apple2_disk.data[offset + 2])
+  track := apple2_disk.catalog_track
+  sector := apple2_disk.catalog_sector
 
   fmt.Println("================ Catalog ===================")
 
@@ -189,10 +196,8 @@ func (apple2_disk *Apple2Disk) FindFile(filename string) (int, int, bool) {
     apple_name[i] = filename[i] | 0x80
   }
 
-  offset := GetOffset(17, 0)
-
-  track := int(apple2_disk.data[offset + 1])
-  sector := int(apple2_disk.data[offset + 2])
+  track := apple2_disk.catalog_track
+  sector := apple2_disk.catalog_sector
 
   for true {
     //fmt.Printf("Track: %d  Sector: %d\n", track, sector)
@@ -350,7 +355,7 @@ func (apple2_disk *Apple2Disk) DumpFile(filename string, output_name string) {
 }
 
 func (apple2_disk *Apple2Disk) MarkSectorUsed(track int, sector int) {
-  offset := GetOffset(17, 0)
+  offset := apple2_disk.offset_to_disk_info
 
   byte_pair_offset := offset + 0x38 + (track * 4)
   current := (int(apple2_disk.data[byte_pair_offset]) << 8) |
@@ -376,7 +381,7 @@ func (apple2_disk *Apple2Disk) MarkSectorFree(track int, sector int) {
 }
 
 func (apple2_disk *Apple2Disk) IsSectorFree(track int, sector int) bool {
-  offset := GetOffset(17, 0)
+  offset := apple2_disk.offset_to_disk_info
 
   byte_pair_offset := offset + 0x38 + (track * 4)
   current := (int(apple2_disk.data[byte_pair_offset]) << 8) |
@@ -408,7 +413,7 @@ func (apple2_disk *Apple2Disk) Init() {
     35, 16,  // max tracks, max sectors per track
   }
 
-  offset := GetOffset(17, 0)
+  offset := apple2_disk.offset_to_disk_info
 
   for i := 0; i < len(disk_info); i++ {
     apple2_disk.data[offset + i] = disk_info[i]
@@ -471,7 +476,7 @@ func (apple2_disk *Apple2Disk) AddDos(filename string) {
 }
 
 func (apple2_disk *Apple2Disk) AllocSector() (int, int) {
-  offset := GetOffset(17, 0)
+  offset := apple2_disk.offset_to_disk_info
 
   track := int(apple2_disk.data[offset + 0x30])
   sector := 0
@@ -503,10 +508,8 @@ func (apple2_disk *Apple2Disk) AddFile(filename string, apple_name string, addre
     return
   }
 
-  offset := GetOffset(17, 0)
-
-  track := int(apple2_disk.data[offset + 1])
-  sector := int(apple2_disk.data[offset + 2])
+  track := apple2_disk.catalog_track
+  sector := apple2_disk.catalog_sector
 
   // Search catalog for an empty space
   for true {

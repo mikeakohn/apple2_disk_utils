@@ -413,6 +413,10 @@ func (apple2_disk *Apple2Disk) Init() {
     35, 16,  // max tracks, max sectors per track
   }
 
+  // Track 17, Sector 0 should be the disk info area.  At least on 5 1/4"
+  // disks.
+  apple2_disk.offset_to_disk_info = GetOffset(17, 0)
+
   offset := apple2_disk.offset_to_disk_info
 
   for i := 0; i < len(disk_info); i++ {
@@ -437,6 +441,9 @@ func (apple2_disk *Apple2Disk) Init() {
 
     apple2_disk.MarkSectorUsed(17, sector)
   }
+
+  apple2_disk.catalog_track = int(apple2_disk.data[apple2_disk.offset_to_disk_info + 1])
+  apple2_disk.catalog_sector = int(apple2_disk.data[apple2_disk.offset_to_disk_info + 2])
 }
 
 func (apple2_disk *Apple2Disk) AddDos(filename string) {

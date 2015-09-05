@@ -492,6 +492,9 @@ func (apple2_disk *Apple2Disk) AllocSector() (int, int) {
     if apple2_disk.IsSectorFree(track, sector) {
       apple2_disk.data[offset + 0x30] = byte(track)
       apple2_disk.MarkSectorUsed(track, sector)
+
+      //fmt.Printf("Allocating: %d/%d\n", track, sector)
+
       return track, sector
     }
 
@@ -586,6 +589,8 @@ func (apple2_disk *Apple2Disk) AddFile(filename string, apple_name string, addre
           for n := 0; n < length; n++ {
             apple2_disk.data[file_offset + n] = binfile[i + n]
           }
+
+          entry += 2
         }
 
         //fmt.Printf("Alloc() track=%d sector=%d\n", track, sector
